@@ -70,7 +70,6 @@ class MemoryEstimate(object):
                 plt.axvline(x=i[1], color='r')
         
         x_margin = x[-1] * 0.05
-        print(max(y) * 0.1)
         if self.backward_start_idx != -1:
           plt.axvline(x=self.backward_start_idx, color='k', linestyle=':')
           plt.text(self.backward_start_idx - x_margin, max(y) * 0.5, 'forward propagation', rotation=90)
@@ -113,7 +112,7 @@ class MemoryEstimate(object):
       vars_delete_position[name] = -1
 
     for idx, op in enumerate(block.ops):
-      print(idx, op.type)
+      #print(idx, op.type)
       for name in op.desc.input_arg_names():
         vars_delete_position[name] = idx
       for name in op.desc.output_arg_names():
@@ -142,19 +141,19 @@ class MemoryEstimate(object):
     memory_timeline = 0
     memories = [0]
     for i in range(-1, len(block.ops)):
-      print(i, block.ops[i].type, memory_timeline)
+      #print(i, block.ops[i].type, memory_timeline)
       for var_name in position_to_var[i]['create']:
         if '@GRAD' in var_name and self.backward_start_idx == -1:
           self.backward_start_idx = i
         if '@GRAD' in var_name:
           self.backward_finish_idx = i
-        print('Create ', var_name, ', Size ',
+        #print('Create ', var_name, ', Size ',
                self._get_var_size(block, var_name, self.debug_batchsize))
         memory_timeline += self._get_var_size(block, var_name,
                                                       self.debug_batchsize)
       memories.append(memory_timeline)
       for var_name in position_to_var[i]['delete']:
-        print('Delete ', var_name, ', Size ',
+        #print('Delete ', var_name, ', Size ',
                self._get_var_size(block, var_name, self.debug_batchsize))
         memory_timeline -= self._get_var_size(block, var_name,
                                                       self.debug_batchsize)
