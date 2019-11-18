@@ -8,7 +8,7 @@ paddlepaddle
 # install
 
 ```shell
-python setup.py instll
+python setup.py install
 ``` 
 
 # usage
