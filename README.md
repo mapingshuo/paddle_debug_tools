@@ -25,4 +25,12 @@ tool.cal_memory()
 
 ![example memory usage](image/memory_anal.png?raw=true "example memory usage")
 
+如果想要在浏览器上访问生成的图片，使用：
+
+```python
+from paddle_debug_tools import memory_tool
+tool = memory_tool.MemoryEstimate(fluid.default_main_program(), serve=True, port=8111)
+tool.cal_memory()
+```
+
 上图是example/test_memory_tool.py的执行结果
