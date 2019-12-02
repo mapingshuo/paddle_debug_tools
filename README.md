@@ -17,7 +17,7 @@ python setup.py install
 
 ```python
 from paddle_debug_tools import memory_tool
-tool = memory_tool.MemoryEstimate(fluid.default_main_program())
+tool = memory_tool.MemoryEstimate(fluid.default_main_program(), batch_size=32)
 tool.cal_memory()
 ```
 
@@ -29,7 +29,7 @@ tool.cal_memory()
 
 ```python
 from paddle_debug_tools import memory_tool
-tool = memory_tool.MemoryEstimate(fluid.default_main_program(), serve=True, port=8111)
+tool = memory_tool.MemoryEstimate(fluid.default_main_program(), batch_size=32, serve=True, port=8111)
 tool.cal_memory()
 ```
 
