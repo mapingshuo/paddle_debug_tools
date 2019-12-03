@@ -1,22 +1,25 @@
 from paddle.fluid import core
 import paddle.compat as cpt
 
+import matplotlib
+matplotlib.use('agg')
+import matplotlib.pyplot as plt
+
 class MemoryEstimate(object):
-  def __init__(self, main_program, batch_size=1, serve=False, port=8233):
+  def __init__(self, main_program, batch_size=1, name=None):
     self.program = main_program
     # sub-block is not supported for now
     self.block = main_program.global_block() 
     self.debug_batchsize = batch_size
-    self.serve=serve
-    self.port = port
+    self.name = name
     self.backward_start_idx = -1
     self.backward_finish_idx = -1
-
-  def cal_memory(self):
+ 
+  def cal_memory(self, serve=False, port=8233):
       # analysis of the memory usage
       # cloned_memory_with_position = self.analysis_memory_usage(cloned_program.global_block())
       memory_with_position = self.analysis_memory_usage(self.block)
-      self.draw(memory_with_position)
+      self.draw(memory_with_position, serve, port)
 
   def _get_var_size(self, block, name, batch):
     """
@@ -54,13 +57,9 @@ class MemoryEstimate(object):
       return -res
     return res
 
-  def draw(self, memory_with_position, recompute_segments=None):
+  def draw(self, memory_with_position, serve, port, recompute_segments=None):
         #print("memory_with_position: ", memory_with_position)
         #print("recompute_segments", recompute_segments)
-
-        import matplotlib
-        matplotlib.use('agg')
-        import matplotlib.pyplot as plt
 
         x = [i - 2 for i in range(len(memory_with_position))]
         y = [(i * 1.0) / 1024 / 1024 for i in memory_with_position]
@@ -70,6 +69,7 @@ class MemoryEstimate(object):
                 plt.axvline(x=i[1], color='r')
         
         x_margin = x[-1] * 0.05
+        #print(max(y) * 0.1)
         if self.backward_start_idx != -1:
           plt.axvline(x=self.backward_start_idx, color='k', linestyle=':')
           plt.text(self.backward_start_idx - x_margin, max(y) * 0.5, 'forward propagation', rotation=90)
@@ -84,18 +84,18 @@ class MemoryEstimate(object):
         plt.legend(loc='upper right')
         plt.xlabel("op_idx")
         plt.ylabel('MB')
-        plt.title('')
+        plt.title('Estimated Memory Usage')
         plt.savefig('memory_anal.png')
         
-        if self.serve is True:
+        if serve is True:
           import SimpleHTTPServer
           import SocketServer
 
           Handler = SimpleHTTPServer.SimpleHTTPRequestHandler
 
-          httpd = SocketServer.TCPServer(("", self.port), Handler)
+          httpd = SocketServer.TCPServer(("", port), Handler)
 
-          print("serving at port", self.port)
+          print("serving at port", port)
           httpd.serve_forever()
 
   def analysis_memory_usage(self, block):
@@ -162,3 +162,45 @@ class MemoryEstimate(object):
 
     return memories
 
+def cal_multi_memories(memories, serve=False, port=8233):
+    for mem_idx, memory in enumerate(memories): 
+        memory_with_position = memory.analysis_memory_usage(memory.block)
+
+        x = [i - 2 for i in range(len(memory_with_position))]
+        y = [(i * 1.0) / 1024 / 1024 for i in memory_with_position]
+
+        if mem_idx == 0:
+          x_margin = x[-1] * 0.05
+          #print(max(y) * 0.1)
+          if memory.backward_start_idx != -1:
+            plt.axvline(x=memory.backward_start_idx, color='k', linestyle=':')
+            plt.text(memory.backward_start_idx - x_margin, max(y) * 0.7, 'forward propagation', rotation=90)
+          if memory.backward_finish_idx != -1:
+            plt.axvline(x=memory.backward_finish_idx, color='k', linestyle=':')
+            plt.text(memory.backward_finish_idx - x_margin, max(y) * 0.7, 'backward propagation', rotation=90)
+            plt.text(x[-1] - x_margin, max(y) * 0.7, 'optimization', rotation=90)
+            plt.axvline(x=max(x), color='k', linestyle=':')
+
+        if memory.name is not None: 
+	    label = memory.name
+        else:
+	    label = "memory_usage_%d" % mem_idx
+        plt.plot(x, y, label=label)
+        #plt.plot(x2, y2, label="without_recompute")
+
+    plt.legend(loc='upper right')
+    plt.xlabel("op_idx")
+    plt.ylabel('MB')
+    plt.title('Estimated Memory Usage')
+    plt.savefig('memory_anal.png')
+
+    if serve is True:
+      import SimpleHTTPServer
+      import SocketServer
+
+      Handler = SimpleHTTPServer.SimpleHTTPRequestHandler
+
+      httpd = SocketServer.TCPServer(("", port), Handler)
+
+      print("serving at port", port)
+      httpd.serve_forever() 
