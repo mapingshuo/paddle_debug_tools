@@ -41,5 +41,5 @@ tool.cal_memory(serve=True, port=8111)
 from paddle_debug_tools import memory_tool
 tool1 = memory_tool.MemoryEstimate(program1, batch_size=32, name="program1")
 tool2 = memory_tool.MemoryEstimate(program2, batch_size=32, name="program2")
-tool.cal_multi_memories([tool1, tool2], serve=True, port=8111)
+memory_tool.cal_multi_memories([tool1, tool2], serve=True, port=8111)
 ```
