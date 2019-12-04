@@ -148,13 +148,13 @@ class MemoryEstimate(object):
         if '@GRAD' in var_name:
           self.backward_finish_idx = i
         #print('Create ', var_name, ', Size ',
-               self._get_var_size(block, var_name, self.debug_batchsize))
+        #self._get_var_size(block, var_name, self.debug_batchsize))
         memory_timeline += self._get_var_size(block, var_name,
                                                       self.debug_batchsize)
       memories.append(memory_timeline)
       for var_name in position_to_var[i]['delete']:
         #print('Delete ', var_name, ', Size ',
-               self._get_var_size(block, var_name, self.debug_batchsize))
+        #       self._get_var_size(block, var_name, self.debug_batchsize))
         memory_timeline -= self._get_var_size(block, var_name,
                                                       self.debug_batchsize)
             #memory_with_position.append(memory_timeline)
