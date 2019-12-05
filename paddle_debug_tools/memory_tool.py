@@ -5,6 +5,12 @@ import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 
+def _pretty_op_desc_(op_desc, prefix):
+    out_s = "%s\tname:[%s]\n%s    \tinputs:[%s]\n%s    \toutputs:[%s]" % \
+            (prefix + "_op", str(op_desc.type()), prefix + "_input", " ".join(op_desc.input_arg_names()),
+             prefix + "_output", " ".join(op_desc.output_arg_names()))
+    return out_s
+
 class MemoryEstimate(object):
   def __init__(self, main_program, batch_size=1, name=None):
     self.program = main_program
@@ -62,7 +68,7 @@ class MemoryEstimate(object):
         #print("recompute_segments", recompute_segments)
 
         x = [i - 2 for i in range(len(memory_with_position))]
-        y = [(i * 1.0) / 1024 / 1024 for i in memory_with_position]
+        y = [(i * 1.0) / 1024 / 1024 / 1024 for i in memory_with_position]
 
         if recompute_segments is not None:
             for i in recompute_segments:
@@ -83,7 +89,7 @@ class MemoryEstimate(object):
 
         plt.legend(loc='upper right')
         plt.xlabel("op_idx")
-        plt.ylabel('MB')
+        plt.ylabel('GB')
         plt.title('Estimated Memory Usage')
         plt.savefig('memory_anal.png')
         
@@ -110,12 +116,26 @@ class MemoryEstimate(object):
     for name in all_var_names:
       vars_create_position[name] = -1
       vars_delete_position[name] = -1
-
+    
     for idx, op in enumerate(block.ops):
-      #print(idx, op.type)
-      for name in op.desc.input_arg_names():
-        vars_delete_position[name] = idx
-      for name in op.desc.output_arg_names():
+      print(idx, op.type)
+      print(_pretty_op_desc_(op.desc, "op"))
+      op_desc = op.desc
+      inputs = {}
+      for input_name in op_desc.input_names():
+        inputs[input_name] = op_desc.input(input_name)
+      outputs = {}
+      for output_name in op_desc.output_names():
+        outputs[output_name] = op_desc.output(output_name)
+      attrs = {}
+      no_need_vars = core.no_need_buffer_slots(op.type, inputs, outputs,  attrs)
+      no_need_var_names = [op_desc[x] for x in no_need_vars]
+      for name in op_desc.input_arg_names():
+        if name in no_need_var_names:
+          print("Skip %s var in %s as it is a not need buffer var" % (name, op.type))
+        else:
+          vars_delete_position[name] = idx
+      for name in op_desc.output_arg_names():
         vars_delete_position[name] = idx
         if vars_create_position[name] == -1:
           vars_create_position[name] = idx
@@ -141,22 +161,21 @@ class MemoryEstimate(object):
     memory_timeline = 0
     memories = [0]
     for i in range(-1, len(block.ops)):
-      #print(i, block.ops[i].type, memory_timeline)
+      print(i, block.ops[i].type, memory_timeline * 1.0 / 1024/1024/1024)
       for var_name in position_to_var[i]['create']:
         if '@GRAD' in var_name and self.backward_start_idx == -1:
           self.backward_start_idx = i
         if '@GRAD' in var_name:
           self.backward_finish_idx = i
-        #print('Create ', var_name, ', Size ',
-        #self._get_var_size(block, var_name, self.debug_batchsize))
+        print('Create ', var_name, ', Size ',
+              self._get_var_size(block, var_name, self.debug_batchsize)) # *1.0/ 1024/1024/1024)
         memory_timeline += self._get_var_size(block, var_name,
                                                       self.debug_batchsize)
       memories.append(memory_timeline)
       for var_name in position_to_var[i]['delete']:
-        #print('Delete ', var_name, ', Size ',
-        #       self._get_var_size(block, var_name, self.debug_batchsize))
-        memory_timeline -= self._get_var_size(block, var_name,
-                                                      self.debug_batchsize)
+        print('Delete ', var_name, ', Size ',
+               self._get_var_size(block, var_name, self.debug_batchsize)) #) * 1.0 / 1024/1024/1024)
+        memory_timeline -= self._get_var_size(block, var_name, self.debug_batchsize)
             #memory_with_position.append(memory_timeline)
             #print(i, memory_timeline)
 
@@ -167,7 +186,7 @@ def cal_multi_memories(memories, serve=False, port=8233):
         memory_with_position = memory.analysis_memory_usage(memory.block)
 
         x = [i - 2 for i in range(len(memory_with_position))]
-        y = [(i * 1.0) / 1024 / 1024 for i in memory_with_position]
+        y = [(i * 1.0) / 1024 / 1024 / 1024 for i in memory_with_position]
 
         if mem_idx == 0:
           x_margin = x[-1] * 0.05
@@ -190,7 +209,7 @@ def cal_multi_memories(memories, serve=False, port=8233):
 
     plt.legend(loc='upper right')
     plt.xlabel("op_idx")
-    plt.ylabel('MB')
+    plt.ylabel('GB')
     plt.title('Estimated Memory Usage')
     plt.savefig('memory_anal.png')
 
@@ -201,6 +220,8 @@ def cal_multi_memories(memories, serve=False, port=8233):
       Handler = SimpleHTTPServer.SimpleHTTPRequestHandler
 
       httpd = SocketServer.TCPServer(("", port), Handler)
-
+      httpd.allow_reuse_address = True
+      httpd.server_bind()
+      httpd.server_activate()
       print("serving at port", port)
       httpd.serve_forever() 
