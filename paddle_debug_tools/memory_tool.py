@@ -46,12 +46,12 @@ class MemoryEstimate(object):
     }
     if not block.desc.find_var(cpt.to_bytes(name)):
       print("get var size failed, can not find var name %s" % name)
-      return 0
+      return 0, [0]
     #print(block.desc.var(cpt.to_bytes(name)))
     if block.desc.var(cpt.to_bytes(name)).type(
         ) != core.VarDesc.VarType.LOD_TENSOR:
       print("not lod tensor var, var name %s" % name)
-      return 0
+      return 0, [0]
     var = block.var(name)
     if var.shape[0] == -1:
       res = -reduce(lambda x, y: x * y,
@@ -60,8 +60,8 @@ class MemoryEstimate(object):
       res = reduce(lambda x, y: x * y,
                          var.shape) * dtype_to_size[var.dtype]
     if res < 0:
-      return -res
-    return res
+      return 0, [0]
+    return res, var.shape 
 
   def draw(self, memory_with_position, serve, port, recompute_segments=None):
         #print("memory_with_position: ", memory_with_position)
@@ -129,7 +129,9 @@ class MemoryEstimate(object):
         outputs[output_name] = op_desc.output(output_name)
       attrs = {}
       no_need_var = core.infer_no_need_buffer_slots(op.type, inputs, outputs,  attrs)
-      no_need_var_names = [op_desc.input(x) for x in no_need_var]
+      no_need_var_names = []
+      for x in no_need_var:
+          no_need_var_names += op_desc.input(x)
       for name in op_desc.input_arg_names():
         if name in no_need_var_names:
           print("Skip %s var in %s as it is a not need buffer var" % (name, op.type))
@@ -161,23 +163,28 @@ class MemoryEstimate(object):
     memory_timeline = 0
     memories = [0]
     for i in range(-1, len(block.ops)):
-      print(i, block.ops[i].type, memory_timeline * 1.0 / 1024/1024/1024)
+      print(i, block.ops[i].type, memory_timeline * 1.0 / 1024/1024/1024, 'GB')
       for var_name in position_to_var[i]['create']:
         if '@GRAD' in var_name and self.backward_start_idx == -1:
           self.backward_start_idx = i
         if '@GRAD' in var_name:
           self.backward_finish_idx = i
-        print('Create ', var_name, ', Size ',
-              self._get_var_size(block, var_name, self.debug_batchsize)) # *1.0/ 1024/1024/1024)
-        memory_timeline += self._get_var_size(block, var_name,
-                                                      self.debug_batchsize)
+        var_size, var_shape = self._get_var_size(
+            block, var_name, self.debug_batchsize)
+        memory_timeline += var_size
+        print('Create ', var_name, 
+              ', Size (GByte)', var_size * 1.0 / 1024 / 1024 / 1024,
+              ', Shape', var_shape)
+
       memories.append(memory_timeline)
       for var_name in position_to_var[i]['delete']:
-        print('Delete ', var_name, ', Size ',
-               self._get_var_size(block, var_name, self.debug_batchsize)) #) * 1.0 / 1024/1024/1024)
-        memory_timeline -= self._get_var_size(block, var_name, self.debug_batchsize)
-            #memory_with_position.append(memory_timeline)
-            #print(i, memory_timeline)
+        var_size, var_shape = self._get_var_size(
+            block, var_name, self.debug_batchsize)
+        print('Delete ', var_name,
+              ', Size (GByte)', var_size * 1.0 / 1024 / 1024 / 1024,
+              ', Shape', var_shape)
+
+        memory_timeline -= var_size
 
     return memories
 
