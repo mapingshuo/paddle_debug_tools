@@ -128,8 +128,8 @@ class MemoryEstimate(object):
       for output_name in op_desc.output_names():
         outputs[output_name] = op_desc.output(output_name)
       attrs = {}
-      no_need_vars = core.no_need_buffer_slots(op.type, inputs, outputs,  attrs)
-      no_need_var_names = [op_desc[x] for x in no_need_vars]
+      no_need_var = core.infer_no_need_buffer_slots(op.type, inputs, outputs,  attrs)
+      no_need_var_names = [op_desc.input(x) for x in no_need_var]
       for name in op_desc.input_arg_names():
         if name in no_need_var_names:
           print("Skip %s var in %s as it is a not need buffer var" % (name, op.type))
