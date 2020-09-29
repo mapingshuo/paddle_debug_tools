@@ -1,5 +1,6 @@
 from paddle.fluid import core
 import paddle.compat as cpt
+from functools import reduce
 
 import matplotlib
 matplotlib.use('agg')
@@ -208,9 +209,9 @@ def cal_multi_memories(memories, serve=False, port=8233):
             plt.axvline(x=max(x), color='k', linestyle=':')
 
         if memory.name is not None: 
-	    label = memory.name
+          label = memory.name
         else:
-	    label = "memory_usage_%d" % mem_idx
+          label = "memory_usage_%d" % mem_idx
         plt.plot(x, y, label=label)
         #plt.plot(x2, y2, label="without_recompute")
 
